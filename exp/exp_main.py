@@ -38,10 +38,14 @@ class Exp_Main(Exp_Basic):
 
     def _select_optimizer(self):
         model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
+
         return model_optim
 
     def _select_criterion(self):
-        criterion = nn.MSELoss()
+        # criterion =  nn.SmoothL1Loss()
+        criterion =  nn.MSELoss()
+
+        print("Loss criterion: ", criterion)
         return criterion
 
     def vali(self, vali_data, vali_loader, criterion):
@@ -51,6 +55,10 @@ class Exp_Main(Exp_Basic):
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(vali_loader):
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float()
+                # print(f'shape batch_x: {batch_x.shape}') # torch.Size([16, 54, 14])
+                # print(f'shape batch_y: {batch_y.shape}') 
+                # print(f'shape batch_x_mark: {batch_x_mark.shape}') 
+                # print(f'shape batch_y_mark: {batch_y_mark.shape}') 
 
                 batch_x_mark = batch_x_mark.float().to(self.device)
                 batch_y_mark = batch_y_mark.float().to(self.device)
@@ -72,7 +80,7 @@ class Exp_Main(Exp_Basic):
                         outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
                 f_dim = -1 if self.args.features == 'MS' else 0
                 batch_y = batch_y[:, -self.args.pred_len:, f_dim:].to(self.device)
-
+                # print(f'shape outputs: {outputs.shape}') torch.Size([16, 36, 1])
                 pred = outputs.detach().cpu()
                 true = batch_y.detach().cpu()
 
@@ -95,7 +103,7 @@ class Exp_Main(Exp_Basic):
         time_now = time.time()
 
         train_steps = len(train_loader)
-        early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
+        early_stopping = EarlyStopping(patience=self.args.patience, verbose=True,delta=-0.001)
 
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
@@ -104,6 +112,7 @@ class Exp_Main(Exp_Basic):
             scaler = torch.cuda.amp.GradScaler()
         
         print('running the training now')
+        errors = []
 
         for epoch in range(self.args.train_epochs):
             iter_count = 0
@@ -111,6 +120,18 @@ class Exp_Main(Exp_Basic):
             self.model.train()
             epoch_time = time.time()
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(train_loader):
+                # print(f'shape batch_x: {batch_x.shape}') 
+                # print(f'shape batch_y: {batch_y.shape}') 
+                # print(f'shape batch_x_mark: {batch_x_mark.shape}') 
+                # print(f'shape batch_y_mark: {batch_y_mark.shape}') 
+
+
+# shape batch_x: torch.Size([32, 36, 20])
+# shape batch_y: torch.Size([32, 54, 20])
+# shape batch_x_mark: torch.Size([32, 36, 5])
+# shape batch_y_mark: torch.Size([32, 54, 5])
+
+
                 iter_count += 1
                 model_optim.zero_grad()
                 batch_x = batch_x.float().to(self.device)
@@ -129,6 +150,7 @@ class Exp_Main(Exp_Basic):
                         if self.args.output_attention:
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
                         else:
+                        
                             outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
 
                         f_dim = -1 if self.args.features == 'MS' else 0
@@ -139,6 +161,10 @@ class Exp_Main(Exp_Basic):
                     if self.args.output_attention:
                         outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)[0]
                     else:
+# shape batch_x: torch.Size([32, 36, 20])
+# shape batch_y: torch.Size([32, 54, 20])
+# shape batch_x_mark: torch.Size([32, 36, 5])
+# shape batch_y_mark: torch.Size([32, 54, 5])
                         outputs = self.model(batch_x, batch_x_mark, dec_inp, batch_y_mark)
 
                     f_dim = -1 if self.args.features == 'MS' else 0
@@ -152,7 +178,7 @@ class Exp_Main(Exp_Basic):
                     # print("\titers: {0}, epoch: {1} | loss: {2:.7f}".format(i + 1, epoch + 1, loss.item()))
                     speed = (time.time() - time_now) / iter_count
                     left_time = speed * ((self.args.train_epochs - epoch) * train_steps - i)
-                    # print('\tspeed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time
+                    # print('\tspeed: {:.4f}s/iter; left time: {:.4f}s'.format(speed, left_time))
 
                     iter_count = 0
                     time_now = time.time()
@@ -165,7 +191,7 @@ class Exp_Main(Exp_Basic):
                     loss.backward()
                     model_optim.step()
 
-            print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
+            print("Epoch: {} cost time: {}sec/epoch".format(epoch + 1, time.time() - epoch_time))
             train_loss = np.average(train_loss)
             vali_loss = self.vali(vali_data, vali_loader, criterion)
             test_loss = self.vali(test_data, test_loader, criterion)
@@ -173,16 +199,24 @@ class Exp_Main(Exp_Basic):
             print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3:.7f} Test Loss: {4:.7f}".format(
                 epoch + 1, train_steps, train_loss, vali_loss, test_loss))
             early_stopping(vali_loss, self.model, path)
+            error = [epoch + 1, train_steps, train_loss, vali_loss, test_loss]
+            errors.append(error)
+
+            # if vali_loss < 0.055:
+            #     print("Early stopping val loss < 0.055")
+            #     break
             if early_stopping.early_stop:
+                
                 print("Early stopping")
                 break
 
             adjust_learning_rate(model_optim, epoch + 1, self.args)
 
         best_model_path = path + '/' + 'checkpoint.pth'
-        self.model.load_state_dict(torch.load(best_model_path))
+        # self.model.load_state_dict(torch.load(best_model_path))
+        print('Total time taken ',  (time.time() - epoch_time )// 60)
 
-        return self.model
+        return self.model, errors
 
     def test(self, setting, test=0):
         test_data, test_loader = self._get_data(flag='test')

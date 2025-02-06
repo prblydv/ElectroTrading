@@ -5,14 +5,21 @@ from layers.Embed import DataEmbedding, DataEmbedding_wo_pos
 from layers.AutoCorrelation import AutoCorrelation, AutoCorrelationLayer
 from layers.FourierCorrelation import FourierBlock, FourierCrossAttention
 from layers.MultiWaveletCorrelation import MultiWaveletCross, MultiWaveletTransform
-from layers.SelfAttention_Family import FullAttention, ProbAttention
+from layers.SelfAttention_Family import FullAttention, ProbAttention, ProjectionAttentionWithFFT, AttentionGuidedProjection
 from layers.Autoformer_EncDec import Encoder, Decoder, EncoderLayer, DecoderLayer, my_Layernorm, series_decomp, series_decomp_multi
-import math
-import numpy as np
+
+
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+class ScaledTanh(nn.Module):
+    def __init__(self, scale=2):
+        super(ScaledTanh, self).__init__()
+        self.scale = scale
+
+    def forward(self, input):
+        return F.tanh(input) * self.scale
 
 class Model(nn.Module):
     """
@@ -66,12 +73,29 @@ class Model(nn.Module):
                                             seq_len=self.seq_len//2+self.pred_len,
                                             modes=configs.modes,
                                             mode_select_method=configs.mode_select)
-            decoder_cross_att = FourierCrossAttention(in_channels=configs.d_model,
-                                                      out_channels=configs.d_model,
-                                                      seq_len_q=self.seq_len//2+self.pred_len,
-                                                      seq_len_kv=self.seq_len,
-                                                      modes=configs.modes,
-                                                      mode_select_method=configs.mode_select)
+            
+
+
+
+
+            # decoder_self_att= AutoCorrelation(factor = configs.factor, attention_dropout = configs.dropout)
+
+
+            decoder_cross_att= AutoCorrelation(factor = configs.factor, attention_dropout = configs.dropout)
+
+
+
+
+
+
+        #     decoder_cross_att = FourierCrossAttention(in_channels=configs.d_model,
+        #                                               out_channels=configs.d_model,
+        #                                               seq_len_q=self.seq_len//2+self.pred_len,
+        #                                               seq_len_kv=self.seq_len,
+        #                                               modes=configs.modes,
+        #                                               mode_select_method=configs.mode_select)
+            
+
         # Encoder
         enc_modes = int(min(configs.modes, configs.seq_len//2))
         dec_modes = int(min(configs.modes, (configs.seq_len//2+configs.pred_len)//2))
@@ -97,6 +121,12 @@ class Model(nn.Module):
         self.decoder = Decoder(
             [
                 DecoderLayer(
+
+                    # AutoCorrelation(factor = configs.factor, attention_dropout = configs.dropout),
+                    # AutoCorrelation(factor = configs.factor, attention_dropout = configs.dropout),
+
+
+
                     AutoCorrelationLayer(
                         decoder_self_att,
                         configs.d_model, configs.n_heads),
@@ -113,30 +143,25 @@ class Model(nn.Module):
                 for l in range(configs.d_layers)
             ],
             norm_layer=my_Layernorm(configs.d_model),
-            projection=nn.Linear(configs.d_model, configs.c_out, bias=True)
+            # projection=nn.Linear(configs.d_model, configs.c_out, bias=True)
+            # projection=nn.Sequential(nn.Linear(configs.d_model, 2*configs.d_model,bias = True),nn.Linear(2*configs.d_model, 2*configs.d_model,bias = True), nn.Linear(2*configs.d_model, configs.c_out,bias = True) )
+            # projection=nn.Sequential(nn.Linear(configs.d_model, configs.c_out),ScaledTanh(scale=2)
+            projection = ProjectionAttentionWithFFT(configs.d_model, configs.n_heads, configs.c_out, configs.dropout)
+            # projection = AttentionGuidedProjection(configs.d_model, configs.c_out)
         )
 
+    
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec,
                 enc_self_mask=None, dec_self_mask=None, dec_enc_mask=None):
         # decomp init
-        x_enc_ms = x_enc[:, -self.pred_len:, -1:]
 
+       
+
+        mean = torch.mean(x_enc, dim=1).unsqueeze(1).repeat(1, self.pred_len, 1)
         zeros = torch.zeros([x_dec.shape[0], self.pred_len, x_dec.shape[2]]).to(device)  # cuda()
-
-        if self.configs.c_out == 1:
-            mean = torch.mean(x_enc_ms, dim=1).unsqueeze(1).repeat(1, self.pred_len, 1)
-            seasonal_init, _ = self.decomp(x_enc)
-            _ , trend_init = self.decomp(x_enc_ms)
-        else:
-            mean = torch.mean(x_enc, dim=1).unsqueeze(1).repeat(1, self.pred_len, 1)
-            seasonal_init, trend_init = self.decomp(x_enc)
-
-
-
+        seasonal_init, trend_init = self.decomp(x_enc)
         # decoder input
         trend_init = torch.cat([trend_init[:, -self.label_len:, :], mean], dim=1)
-
-
         seasonal_init = F.pad(seasonal_init[:, -self.label_len:, :], (0, 0, 0, self.pred_len))
         # enc
         enc_out = self.enc_embedding(x_enc, x_mark_enc)
@@ -146,19 +171,22 @@ class Model(nn.Module):
         seasonal_part, trend_part = self.decoder(dec_out, enc_out, x_mask=dec_self_mask, cross_mask=dec_enc_mask,
                                                  trend=trend_init)
         # final
-        # print(f'shape of dec out before adding trend parts,{dec_out.shape}')
+        trend_part = trend_part[:, :, -1:]  # Keep the last dimension and maintain it as a 3D tensor
+        # print(trend_part.shape,seasonal_part)
+# torch.Size([32, 52, 1]) torch.Size([32, 52, 1])
+
         dec_out = trend_part + seasonal_part
-        # print(f'shape of seasonal parts,{seasonal_part.shape}')
-        # print(f'shape of trend parts,{trend_part.shape}')
-        # print(f'shape of dec out after adding both trend parts,{dec_out.shape}')
-
-
+        # print(dec_out.shape)
+# torch.Size([32, 52, 1])
+#
+        # dec_out = seasonal_part
 
 
         if self.output_attention:
             return dec_out[:, -self.pred_len:, :], attns
         else:
             return dec_out[:, -self.pred_len:, :]  # [B, L, D]
+
 
 
 if __name__ == '__main__':

@@ -1,79 +1,113 @@
-# FEDformer + Reinforcement Learning
+# Forex Market Prediction using Deep Learning
 
-Tian Zhou, Ziqing Ma, Qingsong Wen, Xue Wang, Liang Sun, Rong Jin, "FEDformer: Frequency Enhanced Decomposed Transformer for Long-term Series Forecasting," in Proc. 39th International Conference on Machine Learning (ICML 2022), Baltimore, Maryland, July 17-23, 2022
+## Overview
+This project is an experiment to apply deep learning techniques to predict future market prices in the Forex market. The goal is to leverage advanced time series forecasting models to enhance predictive accuracy and inform trading strategies.
 
-Frequency Enhanced Decomposed
-Transformer (FEDformer) is more efficient than
-standard Transformer with a linear complexity
-to the sequence length [[paper](https://arxiv.org/abs/2201.12740)]. 
+## Installation and Setup
+To run this project, follow the steps below:
 
-Our empirical studies
-with six benchmark datasets show that compared
-with state-of-the-art methods, FEDformer can
-reduce prediction error by 14.8% and 22.6%
-for multivariate and univariate time series,
-respectively.
-
-## Frequency Enhanced Attention
-|![Figure1](https://user-images.githubusercontent.com/44238026/171341166-5df0e915-d876-481b-9fbe-afdb2dc47507.png)|
-|:--:| 
-| *Figure 1. Overall structure of FEDformer* |
-
-|![image](https://user-images.githubusercontent.com/44238026/171343471-7dd079f3-8e0e-442b-acc1-d406d4a3d86a.png) | ![image](https://user-images.githubusercontent.com/44238026/171343510-a203a1a1-db78-4084-8c36-62aa0c6c7ffe.png)
-|:--:|:--:|
-| *Figure 2. Frequency Enhanced Block (FEB)* | *Figure 3. Frequency Enhanced Attention (FEA)* |
-
-
-## Main Results
-![image](https://user-images.githubusercontent.com/44238026/171345192-e7440898-4019-4051-86e0-681d1a28d630.png)
-
-
-## Get Started
-
-1. Install Python>=3.8, PyTorch 1.9.0.
-2. Download data. You can obtain all the six benchmarks from [[Autoformer](https://github.com/thuml/Autoformer)] or [[Informer](https://github.com/zhouhaoyi/Informer2020)].
-3. Train the model. We provide the experiment scripts of all benchmarks under the folder `./scripts`. You can reproduce the multivariate and univariate experiment results by running the following shell code separately:
+### 1. Install Python and Create a Virtual Environment
+Ensure you have Python 3.8 or later installed. You can check your version by running:
 
 ```bash
-bash ./scripts/run_M.sh
-bash ./scripts/run_S.sh
+python --version
 ```
 
+#### Create a Virtual Environment
+1. Navigate to the project folder:
+
+   ```bash
+   cd path/to/project
+   ```
+
+2. Create a virtual environment:
+
+   ```bash
+   python -m venv forex_env
+   ```
+
+3. Activate the virtual environment:
+
+   - **Windows**:
+     ```bash
+     forex_env\Scripts\activate
+     ```
+   - **Mac/Linux**:
+     ```bash
+     source forex_env/bin/activate
+     ```
+
+### 2. Install Dependencies
+Once inside the virtual environment, install the required packages:
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Download Data
+The dataset for this project includes historical forex market prices and can be obtained from relevant data sources.
+
+For benchmark datasets, you can refer to:
+- [Autoformer Repository](https://github.com/thuml/Autoformer)
+- [Informer Repository](https://github.com/zhouhaoyi/Informer2020)
+
+Ensure your dataset is placed inside the `data/` folder before proceeding.
+
+### Changing the Dataset
+To change the dataset and include a new dataset, you can run the `data_downloading_and_feature_extraction0.ipynb` notebook and modify the parameters within the notebook accordingly.
+
+## Running the Experiment
+To execute the experiment, follow these steps:
+
+1. Open Jupyter Notebook:
+   ```bash
+   jupyter notebook
+   ```
+
+2. Navigate to the project folder and open `fedformer6.ipynb`.
+
+3. Run the notebook cells sequentially to execute the Forex market prediction script.
+
+## Model Architecture
+This model utilizes an advanced time series forecasting transformer-based architecture. Below is the structure of the model:
+
+|![Model Structure](https://user-images.githubusercontent.com/44238026/171341166-5df0e915-d876-481b-9fbe-afdb2dc47507.png)|
+|:--:| 
+| *Figure 1. Model architecture used for time-series forecasting* |
+
+The model is designed to efficiently process long-term dependencies in time series data by leveraging frequency-enhanced decomposition techniques.
+
+## Experiment Execution
+Once the setup is complete:
+
+- Open the Jupyter notebook (`fedformer6.ipynb`).
+- Execute all cells sequentially.
+- The model will train on the dataset and provide market price predictions.
 
 ## Citation
-
-If you find this repo useful, please cite our paper. 
+If this experiment is useful to you, consider referring to related work:
 
 ```
 @inproceedings{zhou2022fedformer,
-  title={{FEDformer}: Frequency enhanced decomposed transformer for long-term series forecasting},
+  title={Frequency enhanced decomposed transformer for long-term series forecasting},
   author={Zhou, Tian and Ma, Ziqing and Wen, Qingsong and Wang, Xue and Sun, Liang and Jin, Rong},
   booktitle={Proc. 39th International Conference on Machine Learning (ICML 2022)},
   location = {Baltimore, Maryland},
-  pages={},
   year={2022}
 }
 ```
 
 ## Further Reading
-Survey on Transformers in Time Series:
-
-Qingsong Wen, Tian Zhou, Chaoli Zhang, Weiqi Chen, Ziqing Ma, Junchi Yan, and Liang Sun. "Transformers in time series: A survey." arXiv preprint arXiv:2202.07125 (2022). [paper](https://arxiv.org/abs/2202.07125)
-
+For further understanding of transformers in time-series forecasting:
+- Qingsong Wen, Tian Zhou, et al. "Transformers in time series: A survey." [arXiv preprint](https://arxiv.org/abs/2202.07125).
 
 ## Contact
+For questions regarding this experiment, please reach out to the project contributors or refer to the linked repositories:
 
-If you have any question or want to use the code, please contact tian.zt@alibaba-inc.com or maziqing.mzq@alibaba-inc.com .
+- [Autoformer Repository](https://github.com/thuml/Autoformer)
+- [Informer Repository](https://github.com/zhouhaoyi/Informer2020)
+- [Multivariate Time Series Data](https://github.com/laiguokun/multivariate-time-series-data)
 
-## Acknowledgement
-
-We appreciate the following github repos a lot for their valuable code base or datasets:
-
-https://github.com/thuml/Autoformer
-
-https://github.com/zhouhaoyi/Informer2020
-
-https://github.com/zhouhaoyi/ETDataset
-
-https://github.com/laiguokun/multivariate-time-series-data
+---
+This document provides a comprehensive guide to setting up and running the experiment. The model is built to offer insights into market trends using advanced deep learning techniques.
 

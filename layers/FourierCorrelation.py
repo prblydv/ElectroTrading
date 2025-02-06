@@ -49,15 +49,20 @@ class FourierBlock(nn.Module):
     def forward(self, q, k, v, mask):
         # size = [B, L, H, E]
         B, L, H, E = q.shape
+        # print(f'{B} ,{L} ,{H}, {E}')
         x = q.permute(0, 2, 3, 1)
         # Compute Fourier coefficients
         x_ft = torch.fft.rfft(x, dim=-1)
+        # print(f'x_ft.shpae : {x_ft.shape}')
         # Perform Fourier neural operations
         out_ft = torch.zeros(B, H, E, L // 2 + 1, device=x.device, dtype=torch.cfloat)
         for wi, i in enumerate(self.index):
             out_ft[:, :, :, wi] = self.compl_mul1d(x_ft[:, :, :, i], self.weights1[:, :, :, wi])
         # Return to time domain
+            
         x = torch.fft.irfft(out_ft, n=x.size(-1))
+        # print(f'x.shpae : {x.shape}')
+
         return (x, None)
 
 

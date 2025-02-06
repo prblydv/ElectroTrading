@@ -23,7 +23,7 @@ class AutoCorrelation(nn.Module):
     (2) time delay aggregation
     This block can replace the self-attention family mechanism seamlessly.
     """
-    def __init__(self, mask_flag=True, factor=1, scale=None, attention_dropout=0.1, output_attention=False, configs=None):
+    def __init__(self, mask_flag=True, factor=1,scale=None, attention_dropout=0.1, output_attention=False, configs=None):
         super(AutoCorrelation, self).__init__()
         print('Autocorrelation used !')
         self.factor = factor
@@ -32,6 +32,8 @@ class AutoCorrelation(nn.Module):
         self.output_attention = output_attention
         self.dropout = nn.Dropout(attention_dropout)
         self.agg = None
+
+
         # self.use_wavelet = configs.wavelet
 
     # @decor_time
@@ -113,8 +115,13 @@ class AutoCorrelation(nn.Module):
         return delays_agg
 
     def forward(self, queries, keys, values, attn_mask):
+
+
+
         B, L, H, E = queries.shape
+
         _, S, _, D = values.shape
+
         if L > S:
             zeros = torch.zeros_like(queries[:, :(L - S), :]).float()
             values = torch.cat([values, zeros], dim=1)
@@ -150,6 +157,7 @@ class AutoCorrelationLayer(nn.Module):
         d_values = d_values or (d_model // n_heads)
 
         self.inner_correlation = correlation
+
         self.query_projection = nn.Linear(d_model, d_keys * n_heads)
         self.key_projection = nn.Linear(d_model, d_keys * n_heads)
         self.value_projection = nn.Linear(d_model, d_values * n_heads)
